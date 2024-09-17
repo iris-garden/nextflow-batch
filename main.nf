@@ -1,5 +1,5 @@
 process gwas {
-    container "us-docker.pkg.dev/hail-vdc/1kg-gwas:latest"
+    container "us-central1-docker.pkg.dev/broad-ctsa/irademac/1kg-gwas"
     cpus { cores }
 
     input:
@@ -22,7 +22,7 @@ process gwas {
 
 process clump {
     tag "${chr}"
-    container "hailgenetics/genetics:0.2.37"
+    container "hailgenetics/genetics:0.2.132"
 
     input:
     val chr
