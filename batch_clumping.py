@@ -7,8 +7,9 @@ def gwas(batch, vcf, phenotypes):
     """
     cores = 2
     g = batch.new_job(name='run-gwas')
-    g.image('us-docker.pkg.dev/<MY_PROJECT>/1kg-gwas:latest')
+    g.image('us-central1-docker.pkg.dev/broad-ctsa/irademac/1kg-gwas:latest')
     g.cpu(cores)
+    g.memory('8Gi')
     g.declare_resource_group(
         ofile={'bed': '{root}.bed', 'bim': '{root}.bim', 'fam': '{root}.fam', 'assoc': '{root}.assoc'}
     )
@@ -28,7 +29,7 @@ def clump(batch, bfile, assoc, chr):
     """
     c = batch.new_job(name=f'clump-{chr}')
     c.image('hailgenetics/genetics:0.2.37')
-    c.memory('1Gi')
+    c.memory('4Gi')
     c.command(f"""
 plink --bfile {bfile} \
     --clump {assoc} \
@@ -50,6 +51,7 @@ def merge(batch, results):
     """
     merger = batch.new_job(name='merge-results')
     merger.image('ubuntu:22.04')
+    merger.memory('4Gi')
     if results:
         merger.command(f"""
 head -n 1 {results[0]} > {merger.ofile}
@@ -77,7 +79,7 @@ if __name__ == '__main__':
         results.append(c.clumped)
 
     m = merge(batch, results)
-    batch.write_output(m.ofile, 'gs://<MY_BUCKET>/batch-clumping/1kg-caffeine-consumption.clumped')
+    batch.write_output(m.ofile, 'gs://irademac/batch-clumping/1kg-caffeine-consumption.clumped')
 
     batch.run(open=True, wait=False)
     backend.close()

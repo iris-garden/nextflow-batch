@@ -1,6 +1,7 @@
 process gwas {
     container "us-central1-docker.pkg.dev/broad-ctsa/irademac/1kg-gwas"
     cpus { cores }
+    memory "8 GB"
 
     input:
     val vcf
@@ -22,9 +23,11 @@ process gwas {
 
 process clump {
     tag "${chr}"
-    container "hailgenetics/genetics:0.2.132"
+    container "hailgenetics/genetics:0.2.37"
+    memory "4 GB"
 
     input:
+    path gwasOutput
     val chr
     val outputPrefix
 
@@ -34,7 +37,7 @@ process clump {
     """
     plink \
         --bfile ${outputPrefix} \
-        --clump ${outputPrefix} \
+        --clump ${outputPrefix}.assoc \
         --chr ${chr} \
         --clump-p1 0.01 \
         --clump-p2 0.01 \
@@ -45,10 +48,12 @@ process clump {
     """
 }
 
-process merge {
+process mergegwas {
     container "ubuntu:22.04"
+    memory "4 GB"
 
     input:
+    path clumpOutputs
     val outFile
 
     output:
@@ -60,19 +65,24 @@ process merge {
     do
         tail -n +2 \$chr.clumped >> ${outFile}
     done
-    sed -i -e '/^$/d' ${outFile}
+    sed -i -e '/^\$/d' ${outFile}
     """
 }
 
 workflow {
     inputBucket = "gs://hail-tutorial"
     outputPrefix = "out"
-    gwas(
-        "${inputBucket}/1kg.vcf.bgz",
-        "${inputBucket}/1kg_annotations.txt",
-        outputPrefix,
-        2
-    )
-    channel.of(1..23) | { clump(it, outputPrefix) }
-    merge("1kg-caffeine-consumption.clumped") | view
+    mergegwas(
+        clump(
+            gwas(
+                "${inputBucket}/1kg.vcf.bgz",
+                "${inputBucket}/1kg_annotations.txt",
+                outputPrefix,
+                2
+            ),
+            channel.of(1..23),
+            outputPrefix
+        ).collect(),
+        "1kg-caffeine-consumption.clumped"
+    ).view()
 }
